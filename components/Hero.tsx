@@ -1,10 +1,11 @@
 'use client'
 
 import { motion, useScroll, useTransform } from 'framer-motion'
-import { useRef } from 'react'
-import Link from 'next/link'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import type { Profile } from '@/types'
-import { getMetafieldValue } from '@/lib/cosmic'
+
+const ARTWORK_URL =
+  'https://ik.imagekit.io/xmnehhl6rx/Hero%20Images%20/text_and_ye_bada_light_202605221918.jpeg'
 
 export default function Hero({ profile }: { profile: Profile | null }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -12,124 +13,114 @@ export default function Hero({ profile }: { profile: Profile | null }) {
     target: ref,
     offset: ['start start', 'end start'],
   })
-  const y1 = useTransform(scrollYProgress, [0, 1], [0, 200])
-  const y2 = useTransform(scrollYProgress, [0, 1], [0, -150])
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0])
 
-  const name = getMetafieldValue(profile?.metadata?.full_name) || 'Lokesh Devda'
-  const title = getMetafieldValue(profile?.metadata?.professional_title) || 'Graphic Designer & Web Developer'
-  const tagline = getMetafieldValue(profile?.metadata?.tagline)
+  // Artwork scales up as user scrolls
+  const artworkScale = useTransform(scrollYProgress, [0, 1], [1, 1.15])
+  // Glow expands on scroll
+  const glowScale = useTransform(scrollYProgress, [0, 1], [1, 1.6])
+  const glowOpacity = useTransform(scrollYProgress, [0, 0.8], [0.5, 0])
+  // Badge moves slower than content (parallax depth)
+  const badgeY = useTransform(scrollYProgress, [0, 1], [0, -120])
+
   const photo = profile?.metadata?.profile_photo?.imgix_url
-  const heroBg = profile?.metadata?.hero_background?.imgix_url
+
+  // Mouse parallax state
+  const [mouse, setMouse] = useState({ x: 0, y: 0 })
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    const cx = window.innerWidth / 2
+    const cy = window.innerHeight / 2
+    const nx = (e.clientX - cx) / cx
+    const ny = (e.clientY - cy) / cy
+    setMouse({ x: nx, y: ny })
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [handleMouseMove])
 
   return (
     <section
       ref={ref}
-      className="relative min-h-screen flex items-center overflow-hidden pt-32 pb-16"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden"
     >
-      {heroBg && (
+      {/* Layer 1: Dark Background */}
+      <div className="absolute inset-0 -z-30 bg-[#070710]" />
+
+      {/* Layer 3: Large Light Glow (behind artwork) */}
+      <motion.div
+        style={{ scale: glowScale, opacity: glowOpacity }}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70vw] h-[70vw] max-w-[900px] max-h-[900px] rounded-full bg-purple-500/30 blur-[120px] -z-20 animate-float"
+      />
+
+      {/* Layer 2: Hero Artwork Image (as background layer) */}
+      <motion.div
+        initial={{ opacity: 0, scale: 1.08, filter: 'blur(20px)' }}
+        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+        transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          scale: artworkScale,
+          x: mouse.x * 20,
+          y: mouse.y * 20,
+        }}
+        className="absolute inset-0 -z-10"
+      >
+        <div
+          className="w-full h-full bg-center bg-no-repeat bg-contain md:bg-cover"
+          style={{ backgroundImage: `url("${ARTWORK_URL}")` }}
+        />
+      </motion.div>
+
+      {/* Subtle dark vignette over artwork for badge contrast */}
+      <div className="absolute inset-0 -z-[5] bg-gradient-to-t from-[#070710]/70 via-transparent to-[#070710]/40 pointer-events-none" />
+
+      {/* Layer 4: Lanyard Badge (foreground, interactive) */}
+      {photo && (
         <motion.div
-          style={{ y: y1 }}
-          className="absolute inset-0 -z-10"
+          initial={{ opacity: 0, y: -300 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            type: 'spring',
+            stiffness: 120,
+            damping: 12,
+            mass: 1,
+            delay: 0.6,
+          }}
+          style={{
+            y: badgeY,
+            x: mouse.x * -30,
+            rotate: mouse.x * 6,
+          }}
+          className="absolute right-6 md:right-20 top-1/2 -translate-y-1/2 z-20 perspective"
         >
-          <img
-            src={`${heroBg}?w=2400&h=1600&fit=crop&auto=format,compress`}
-            alt="Background"
-            className="w-full h-[120%] object-cover opacity-20"
-          />
-        </motion.div>
-      )}
+          {/* Lanyard strap */}
+          <div className="flex flex-col items-center">
+            <div className="w-1.5 h-24 md:h-32 bg-gradient-to-b from-purple-600 to-pink-600 rounded-full shadow-lg" />
+            <div className="w-4 h-4 rounded-full bg-gray-700 border border-white/20 -mt-1 z-10" />
 
-      <div className="absolute inset-0 -z-10 bg-grid-pattern bg-[size:60px_60px]" />
-      <motion.div
-        style={{ y: y2 }}
-        className="absolute -top-20 -left-20 w-96 h-96 bg-purple-600/30 rounded-full blur-3xl -z-10"
-      />
-      <motion.div
-        className="absolute bottom-0 right-0 w-96 h-96 bg-pink-600/20 rounded-full blur-3xl -z-10 animate-float"
-      />
-
-      <motion.div style={{ opacity }} className="max-w-7xl mx-auto px-5 w-full">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
-          <div>
-            <motion.span
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              className="inline-block glass px-4 py-1.5 rounded-full text-sm text-gray-300 mb-6"
-            >
-              ✦ Available for freelance work
-            </motion.span>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.1 }}
-              className="font-display text-5xl md:text-7xl font-bold leading-[1.05] mb-6"
-            >
-              Hi, I'm <span className="text-gradient">{name}</span>
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="text-xl text-gray-300 mb-4"
-            >
-              {title}
-            </motion.p>
-
-            {tagline && (
-              <motion.p
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.3 }}
-                className="text-gray-400 mb-8 max-w-md"
-              >
-                {tagline}
-              </motion.p>
-            )}
-
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.4 }}
-              className="flex flex-wrap gap-4"
-            >
-              <Link
-                href="/projects"
-                className="px-6 py-3 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium hover:scale-105 transition-transform"
-              >
-                View My Work
-              </Link>
-              <Link
-                href="/experience"
-                className="px-6 py-3 rounded-full glass text-white font-medium hover:bg-white/10 transition-colors"
-              >
-                My Journey
-              </Link>
-            </motion.div>
-          </div>
-
-          {photo && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              className="relative perspective"
-            >
-              <div className="relative w-full max-w-md mx-auto">
-                <div className="absolute inset-0 bg-gradient-to-tr from-purple-600 to-pink-600 rounded-3xl blur-2xl opacity-40 animate-float" />
+            {/* Badge card */}
+            <div className="relative -mt-2 w-44 md:w-56 glass rounded-3xl p-4 border border-white/15 shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-tr from-purple-600/30 to-pink-600/30 rounded-3xl blur-xl -z-10" />
+              <div className="overflow-hidden rounded-2xl">
                 <img
-                  src={`${photo}?w=900&h=1000&fit=crop&auto=format,compress`}
-                  alt={name}
-                  className="relative rounded-3xl w-full object-cover border border-white/10"
+                  src={`${photo}?w=600&h=700&fit=crop&auto=format,compress`}
+                  alt={profile?.metadata?.full_name || 'Profile'}
+                  className="w-full object-cover"
                 />
               </div>
-            </motion.div>
-          )}
-        </div>
-      </motion.div>
+              <div className="mt-3 text-center">
+                <div className="text-white font-display font-semibold text-sm md:text-base">
+                  {profile?.metadata?.full_name || 'Lokesh Devda'}
+                </div>
+                <div className="text-gray-400 text-[11px] md:text-xs mt-0.5">
+                  {profile?.metadata?.professional_title || 'Designer & Developer'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </section>
   )
 }
