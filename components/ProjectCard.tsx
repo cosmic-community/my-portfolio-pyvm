@@ -28,8 +28,6 @@ export default function ProjectCard({ project, index = 0 }: { project: Project; 
             <img
               src={`${image}?w=800&h=560&fit=crop&auto=format,compress`}
               alt={title}
-              width={400}
-              height={280}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             />
             <div
